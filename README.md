@@ -1,1 +1,1 @@
-# docker-subsonic
+# docker-music-streaming-server
