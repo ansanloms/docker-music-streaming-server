@@ -1,8 +1,45 @@
 services:
-  navidrome:
-    image: docker.io/deluan/navidrome:0.64.2
+  tailscale-navidrome:
+    image: docker.io/tailscale/tailscale:v1.104.7
     ports:
       - ${NAVIDROME_PORT:-4533}:4533
+    restart: unless-stopped
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:?TS_AUTHKEY を .env に設定する}
+      TS_HOSTNAME: navidrome
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_AUTH_ONCE: "true"
+    volumes:
+      - type: volume
+        source: tailscale-navidrome-state
+        target: /var/lib/tailscale
+    configs:
+      - source: tailscale-navidrome-serve
+        target: /config/serve.json
+  tailscale-feishin:
+    image: docker.io/tailscale/tailscale:v1.104.7
+    ports:
+      - ${FEISHIN_PORT:-9180}:9180
+    restart: unless-stopped
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:?TS_AUTHKEY を .env に設定する}
+      TS_HOSTNAME: feishin
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_AUTH_ONCE: "true"
+    volumes:
+      - type: volume
+        source: tailscale-feishin-state
+        target: /var/lib/tailscale
+    configs:
+      - source: tailscale-feishin-serve
+        target: /config/serve.json
+  navidrome:
+    image: docker.io/deluan/navidrome:0.64.2
+    network_mode: service:tailscale-navidrome
+    depends_on:
+      - tailscale-navidrome
     restart: unless-stopped
     environment:
       TZ: ${TZ}
@@ -25,8 +62,9 @@ services:
       - .env
   feishin:
     image: ghcr.io/jeffvli/feishin:1.17.0
-    ports:
-      - ${FEISHIN_PORT:-9180}:9180
+    network_mode: service:tailscale-feishin
+    depends_on:
+      - tailscale-feishin
     restart: unless-stopped
     environment:
       TZ: ${TZ}
@@ -36,3 +74,27 @@ services:
       SERVER_URL: ${SERVER_URL}
       LEGACY_AUTHENTICATION: true
       ANALYTICS_DISABLED: true
+configs:
+  tailscale-navidrome-serve:
+    content: |
+      {
+        "TCP": { "80": { "HTTP": true } },
+        "Web": {
+          "navidrome.${TS_TAILNET:?TS_TAILNET を .env に設定する}:80": {
+            "Handlers": { "/": { "Proxy": "http://127.0.0.1:4533" } }
+          }
+        }
+      }
+  tailscale-feishin-serve:
+    content: |
+      {
+        "TCP": { "80": { "HTTP": true } },
+        "Web": {
+          "feishin.${TS_TAILNET:?TS_TAILNET を .env に設定する}:80": {
+            "Handlers": { "/": { "Proxy": "http://127.0.0.1:9180" } }
+          }
+        }
+      }
+volumes:
+  tailscale-navidrome-state:
+  tailscale-feishin-state:
