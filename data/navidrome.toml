@@ -1,7 +1,7 @@
 LogLevel = "DEBUG"
 MusicFolder = "/music"
 DataFolder = "/data"
-ScanSchedule = "@every 24h"
+Scanner.Schedule = "@every 24h"
 TranscodingCacheSize = "150MiB"
 SessionTimeout = "240h"
 
